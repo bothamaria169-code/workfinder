@@ -75,3 +75,19 @@ Admin → **Jobs** → **Load demo data** adds 20 sample companies and about 90 
 Google Cloud Console → APIs & Services → Credentials → **Create OAuth client ID** (Web application).
 Authorised redirect URI: `https://workfinder.swiftfusion.co.za/auth/google.php`.
 Paste the Client ID and secret into Admin → Settings → Google sign-in.
+
+## 11. AI cover letters (free)
+
+1. Sign in at https://console.groq.com/keys → **Create API Key** → copy it.
+2. Admin → **Settings → AI cover letters** → paste the key → **Save** → **Test the key**.
+
+Users then see **Write it with AI**, **Tailor to the advert**, **Shorter**, **More formal** and **Warmer** under the cover letter when applying. The AI only uses the user's profile and the advert, and never invents experience.
+
+## 12. Plans & payments
+
+Admin → **Payments**:
+- **Prices & plans** — defaults: Free = 10 application emails, 5 AI letters and 2 job alerts a month; Pro = R49/month for 300 emails, 100 AI letters and 20 alerts; credits R10 = 10 application emails (never expire). Untick **Plans are on** to make everything free.
+- **How you get paid** — tick bank deposit (EFT), OTT voucher and/or 1Voucher, and add your bank account for deposits. Each customer's deposit reference is WF + their number (e.g. WF00042).
+- **To verify** — every payment waits here. Check the deposit in your bank (or redeem the voucher PIN in your OTT / 1Voucher merchant portal), then **Approve** or **Reject**. The user is emailed either way.
+
+You can also give credits or Pro by hand on any user's page (Admin → Users → the user → Plan & credits).

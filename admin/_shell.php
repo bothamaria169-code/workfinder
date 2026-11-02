@@ -36,6 +36,7 @@ function adminOpen(string $active, string $title, string $sub = '', string $acti
     global $ADMIN;
     $db = getDB();
     $newUsers = (int) $db->query('SELECT COUNT(*) FROM users WHERE created_at > (NOW() - INTERVAL 1 DAY)')->fetchColumn();
+    $vouchers = (int) $db->query("SELECT COUNT(*) FROM payments WHERE status = 'pending'")->fetchColumn();
     $failed   = (int) $db->query("SELECT COUNT(*) FROM sent_emails WHERE status = 'failed' AND created_at > (NOW() - INTERVAL 1 DAY)")->fetchColumn();
 
     $nav = [
@@ -43,6 +44,7 @@ function adminOpen(string $active, string $title, string $sub = '', string $acti
             ['dashboard', 'index.php',     'fa-gauge-high', 'Dashboard', 0],
             ['users',     'users.php',     'fa-users',      'Users',     $newUsers],
             ['emails',    'emails.php',    'fa-envelope-open-text', 'Emails', $failed],
+            ['payments',  'payments.php',  'fa-money-bill-wave', 'Payments', $vouchers],
         ],
         'Content' => [
             ['jobs',      'jobs.php',      'fa-briefcase',  'Jobs', 0],

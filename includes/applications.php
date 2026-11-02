@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/jobs.php';
+require_once __DIR__ . '/billing.php';
 
 // ── Tracker ───────────────────────────────────────────────────────
 /** The user's tracker row for a job (created as "saved" if missing). */
@@ -88,10 +89,10 @@ function defaultCoverLetter(array $user, ?array $job, ?array $company = null): s
 function logEmail(array $row): int
 {
     $db = getDB();
-    $db->prepare('INSERT INTO sent_emails (user_id, application_id, kind, to_email, subject, body, attachment_name, status, error, open_token)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    $db->prepare('INSERT INTO sent_emails (user_id, application_id, kind, to_email, subject, body, attachment_name, status, error, open_token, charge_source)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
        ->execute([$row['user_id'] ?? null, $row['application_id'] ?? null, $row['kind'], strtolower($row['to_email']), mb_substr($row['subject'], 0, 300),
-                  $row['body'] ?? null, $row['attachment_name'] ?? null, $row['status'] ?? 'sent', $row['error'] ?? null, $row['open_token'] ?? null]);
+                  $row['body'] ?? null, $row['attachment_name'] ?? null, $row['status'] ?? 'sent', $row['error'] ?? null, $row['open_token'] ?? null, $row['charge_source'] ?? null]);
     return (int) $db->lastInsertId();
 }
 
@@ -114,6 +115,8 @@ function sendApplication(array $user, string $to, string $subject, string $lette
     $subject = trim($subject) ?: 'Application';
     $letter  = trim($letter);
     if (mb_strlen($letter) < 40) return ['ok' => false, 'error' => 'Please write a short cover letter (at least a few sentences).'];
+    [$charge, $why] = reserveApplication($user);
+    if ($charge === null) return ['ok' => false, 'error' => $why, 'upgrade' => true];
 
     $db  = getDB();
     $uid = (int) $user['id'];
@@ -141,8 +144,9 @@ function sendApplication(array $user, string $to, string $subject, string $lette
     $id = logEmail([
         'user_id' => $uid, 'application_id' => $appId, 'kind' => 'application', 'to_email' => $to, 'subject' => $subject,
         'body' => $letter, 'attachment_name' => $files ? $cv['original_name'] : null,
-        'status' => $error === '' ? 'sent' : 'failed', 'error' => $error ?: null, 'open_token' => $token,
+        'status' => $error === '' ? 'sent' : 'failed', 'error' => $error ?: null, 'open_token' => $token, 'charge_source' => $error === '' ? $charge : null,
     ]);
+    settleApplication($uid, $charge, $error === '', $id);
     if ($error !== '') return ['ok' => false, 'error' => 'The email could not be sent: ' . $error, 'id' => $id];
 
     if ($appId) {

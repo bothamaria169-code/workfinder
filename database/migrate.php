@@ -7,7 +7,7 @@ declare(strict_types=1);
  * the version reached. Works on MySQL and MariaDB (columns are checked in
  * information_schema rather than with MariaDB-only "ADD COLUMN IF NOT EXISTS").
  */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 function runMigrations(PDO $db): void
 {
@@ -27,6 +27,7 @@ function runMigrations(PDO $db): void
     }
     try {
         if ($v < 1) migrationV1($db);
+        if ($v < 2) migrationV2($db);
         $db->prepare("REPLACE INTO app_settings (k, v) VALUES ('schema_version', ?)")->execute([(string) SCHEMA_VERSION]);
     } finally {
         $db->query("SELECT RELEASE_LOCK('workfinder_migrate')");
@@ -46,6 +47,59 @@ function addColumn(PDO $db, string $table, string $column, string $definition): 
     if (!columnExists($db, $table, $column)) {
         $db->exec("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
     }
+}
+
+/** Plans & credits, payments (EFT / OTT / 1Voucher) and AI cover-letter usage. */
+function migrationV2(PDO $db): void
+{
+    $t = ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
+    addColumn($db, 'users', 'plan', "VARCHAR(10) NOT NULL DEFAULT 'free'");
+    addColumn($db, 'users', 'plan_expires_at', 'DATETIME NULL');
+    addColumn($db, 'users', 'credits', 'INT NOT NULL DEFAULT 0');
+    addColumn($db, 'sent_emails', 'charge_source', 'VARCHAR(10) NULL');
+
+    $db->exec("CREATE TABLE IF NOT EXISTS credit_ledger (
+        id         INT PRIMARY KEY AUTO_INCREMENT,
+        user_id    INT NOT NULL,
+        delta      INT NOT NULL,
+        kind       VARCHAR(20) NOT NULL,
+        note       VARCHAR(255) NULL,
+        created_by INT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user (user_id, created_at),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ){$t}");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS payments (
+        id             INT PRIMARY KEY AUTO_INCREMENT,
+        user_id        INT NOT NULL,
+        package        VARCHAR(20) NOT NULL,
+        amount         DECIMAL(10,2) NOT NULL,
+        method         VARCHAR(20) NOT NULL DEFAULT 'ott',
+        reference      VARCHAR(24) NULL,
+        voucher_pin    VARCHAR(32) NULL,
+        voucher_amount DECIMAL(10,2) NULL,
+        proof_path     VARCHAR(255) NULL,
+        status         VARCHAR(12) NOT NULL DEFAULT 'pending',
+        admin_note     VARCHAR(500) NULL,
+        reviewed_by    INT NULL,
+        reviewed_at    DATETIME NULL,
+        created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_pin (voucher_pin),
+        INDEX idx_status (status, created_at),
+        INDEX idx_reference (reference),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ){$t}");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS ai_requests (
+        id         INT PRIMARY KEY AUTO_INCREMENT,
+        user_id    INT NOT NULL,
+        kind       VARCHAR(20) NOT NULL,
+        ok         TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user (user_id, created_at),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ){$t}");
 }
 
 /** Every table the app needs, plus the starter industries and skills dictionary. */

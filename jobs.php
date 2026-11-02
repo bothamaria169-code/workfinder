@@ -12,8 +12,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $freq = in_array($_POST['frequency'] ?? '', ['daily', 'weekly'], true) ? $_POST['frequency'] : 'daily';
     $count = getDB()->prepare('SELECT COUNT(*) FROM saved_searches WHERE user_id = ?');
     $count->execute([$uid]);
-    if ((int) $count->fetchColumn() >= (int) get_setting('max_alerts', '10')) {
-        flash('error', 'You have the maximum number of job alerts. Delete one first.');
+    if ((int) $count->fetchColumn() >= alertLimit($user)) {
+        flash('error', 'You have the maximum of ' . alertLimit($user) . ' job alerts on your plan. Delete one first' . (billingOn() && !isPro($user) ? ', or go Pro for more' : '') . '.');
     } else {
         getDB()->prepare('INSERT INTO saved_searches (user_id, name, query, frequency) VALUES (?, ?, ?, ?)')
             ->execute([$uid, mb_substr(postText('name', 150) ?: describeSearch($f), 0, 150), json_encode($f), $freq]);

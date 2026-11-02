@@ -12,7 +12,9 @@ PHP 8.1+ · MySQL/MariaDB · no build step. Same stack and design system as Invo
 | My hunt | `saved.php`, `tracker.php` (board), `emails.php` (sent emails), `alerts.php` (job alerts), `account.php` (POPIA download/delete) |
 | Apply by email | `apply.php`, `includes/applications.php` (sending, copies to the user, limits, opt-outs, alerts, reminders), `open.php` (open tracking), `unsubscribe.php` (employer opt-out) |
 | Job APIs | `sources/sources.php` — Adzuna, Careerjet, Jooble, Remotive, Arbeitnow |
-| Admin dashboard | `admin/` — Dashboard, Users (edit, suspend, make admin, log in as, export), Emails, Jobs (post, CSV import, demo data), Companies (merge), Industries & skills, Job sources, Settings, Audit log |
+| AI cover letters | `includes/ai.php` (Groq, Llama 3.3), `ajax/ai_letter.php` — buttons on `apply.php` |
+| Plans, credits & payments | `includes/billing.php`, `billing.php` (EFT, OTT, 1Voucher), `admin/payments.php`, `admin/slip.php` |
+| Admin dashboard | `admin/` — Dashboard, Users (edit, suspend, make admin, log in as, credits/Pro, export), Emails, Payments, Jobs (post, CSV import, demo data), Companies (merge), Industries & skills, Job sources, Settings, Audit log |
 | Scheduled work | `cron.php` — job sync, alerts, follow-up reminders |
 | Database schema | `database/migrate.php` — runs itself on the first page load |
 | Setup guide | **`docs/SETUP-GUIDE.md`** |
@@ -36,6 +38,8 @@ Afterwards, every change is: push to GitHub → cPanel **Update from Remote** �
 - **Settings → Email delivery → Send test email.** The mailbox is `workfinder@swiftfusion.co.za`.
 - **Settings → Job APIs:** free keys for Adzuna (best SA coverage), Careerjet and Jooble. Then **Job sources → Sync all now**.
 - **Jobs → Load demo data** to try everything before the APIs are connected; **Remove demo data** when you go live.
+- **Settings → AI cover letters:** free Groq key from console.groq.com.
+- **Payments → How you get paid / Prices & plans:** bank account for deposits, OTT/1Voucher, prices (Free 10 applications/month, Pro R49/month, R10 = 10 credits). Untick “Plans are on” to make it all free.
 - **Settings → Google sign-in** (optional).
 
 ## How apply-by-email works

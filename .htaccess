@@ -5,7 +5,7 @@ DirectoryIndex index.php
   RewriteEngine On
   # Code, data and CVs are never served directly. CVs open
   # through cv.php for their owner or an admin.
-  RewriteRule ^(config|includes|classes|sources|database|vendor|docs|uploads/cvs|\.git)(/|$) - [F,L]
+  RewriteRule ^(config|includes|classes|sources|database|vendor|docs|uploads/cvs|uploads/payments|\.git)(/|$) - [F,L]
 </IfModule>
 
 # Dumps, notes, lock files and anything that looks like a credential note

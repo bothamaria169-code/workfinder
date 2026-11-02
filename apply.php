@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/profile.php';
+require_once __DIR__ . '/includes/ai.php';
 
 $user    = currentSeeker();
 $uid     = (int) $user['id'];
@@ -26,7 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $error = $r['error'];
 }
 
-$left = max(0, dailyLimit($user) - sentToday($uid));
+$left   = max(0, dailyLimit($user) - sentToday($uid));
+$usage  = usageFor($user);
+$canPay = !$usage['on'] || $usage['left'] > 0 || $usage['credits'] > 0;
+$aiLeft = aiEnabled() ? aiLeft($user) : 0;
 $where = $job ? $job['title'] . ' · ' . ($job['company_name'] ?: '') : $company['name'];
 appOpen('jobs', 'Apply by email', e($where), '<a class="btn btn-ghost" href="' . ($job ? 'job.php?id=' . (int) $job['id'] : 'company.php?id=' . (int) $company['id']) . '"><i class="fa-solid fa-arrow-left"></i> Back</a>');
 ?>
@@ -40,7 +44,19 @@ appOpen('jobs', 'Apply by email', e($where), '<a class="btn btn-ghost" href="' .
       <div class="field"><label>To (employer's email)</label><input type="email" name="to" value="<?= e($to) ?>" placeholder="careers@company.co.za" required>
         <?php if (!$to): ?><div class="hint">This advert has no email address. Check the original advert<?= $job && $job['apply_url'] ? ' (<a href="' . e($job['apply_url']) . '" target="_blank" rel="noopener nofollow">open it</a>)' : '' ?> for one, or apply on the company's website.</div><?php endif; ?></div>
       <div class="field"><label>Subject</label><input name="subject" value="<?= e($subject) ?>" maxlength="250" required></div>
-      <div class="field"><label>Cover letter <span class="hint">Edit it to fit the job — specific beats generic</span></label><textarea name="letter" rows="14" required><?= e($letter) ?></textarea></div>
+      <div class="field"><label>Cover letter <span class="hint">Edit it to fit the job — specific beats generic</span></label><textarea name="letter" id="letter" rows="14" required><?= e($letter) ?></textarea>
+        <?php if (aiEnabled()): ?>
+          <div class="chips" style="margin-top:.6rem;align-items:center" id="aiBar">
+            <button type="button" class="btn-xs" data-ai="write" style="border-color:var(--brand);color:var(--brand)"><i class="fa-solid fa-wand-magic-sparkles"></i> Write it with AI</button>
+            <button type="button" class="btn-xs" data-ai="tailor">Tailor to the advert</button>
+            <button type="button" class="btn-xs" data-ai="shorter">Shorter</button>
+            <button type="button" class="btn-xs" data-ai="formal">More formal</button>
+            <button type="button" class="btn-xs" data-ai="friendly">Warmer</button>
+            <span class="hint" style="margin:0" id="aiLeft"><?= $aiLeft ?> AI letter<?= $aiLeft === 1 ? '' : 's' ?> left this month</span>
+          </div>
+          <div class="hint">The AI uses only your profile and the advert. Always read it before sending.</div>
+        <?php endif; ?>
+      </div>
       <div class="field"><label>Attach CV</label>
         <?php if ($cvs): ?>
           <select name="cv_id"><?php foreach ($cvs as $c): ?><option value="<?= (int) $c['id'] ?>" <?= $c['is_default'] ? 'selected' : '' ?>><?= e($c['original_name']) ?></option><?php endforeach; ?><option value="0">Don't attach a CV</option></select>
@@ -48,7 +64,9 @@ appOpen('jobs', 'Apply by email', e($where), '<a class="btn btn-ghost" href="' .
           <div class="hint">No CV uploaded yet. <a href="profile.php">Upload one</a> — most employers expect it.</div><input type="hidden" name="cv_id" value="0">
         <?php endif; ?>
       </div>
-      <div class="form-foot"><button class="btn btn-primary btn-lg" type="submit" <?= $left ? '' : 'disabled' ?>><i class="fa-solid fa-paper-plane"></i> Send application</button><span class="hint" style="margin:0"><?= $left ?> of <?= dailyLimit($user) ?> application emails left today</span></div>
+      <div class="form-foot"><button class="btn btn-primary btn-lg" type="submit" <?= $left && $canPay ? '' : 'disabled' ?>><i class="fa-solid fa-paper-plane"></i> Send application</button>
+        <span class="hint" style="margin:0"><?= $left ?> of <?= dailyLimit($user) ?> left today<?= $usage['on'] ? ' · ' . e(usageBadge($user)) : '' ?></span></div>
+      <?php if (!$canPay): ?><div class="alert alert-info" style="margin-top:1rem"><i class="fa-solid fa-coins"></i><span>You've used this month's application emails. <a href="billing.php">Top up or go Pro</a> to keep applying.</span></div><?php endif; ?>
     </div>
   </form>
 
@@ -75,4 +93,23 @@ appOpen('jobs', 'Apply by email', e($where), '<a class="btn btn-ghost" href="' .
     </section>
   </div>
 </div>
-<?php appClose();
+<?php appClose(aiEnabled() ? '<script>
+(function () {
+  var box = document.getElementById("letter"), subj = document.querySelector("input[name=subject]"), left = document.getElementById("aiLeft");
+  document.querySelectorAll("[data-ai]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var mode = b.dataset.ai, label = b.innerHTML;
+      document.querySelectorAll("[data-ai]").forEach(function (x) { x.disabled = true; });
+      b.innerHTML = "<i class=\"fa-solid fa-spinner fa-spin\"></i> Writing…";
+      wfPost("ajax/ai_letter.php", { ' . ($job ? 'job: ' . (int) $job['id'] : 'company: ' . (int) $company['id']) . ', mode: mode, draft: box.value }).then(function (r) {
+        if (!r.ok) { wfToast(r.error || "AI failed"); return; }
+        box.value = r.letter;
+        if (r.subject && mode === "write") subj.value = r.subject;
+        if (left) left.textContent = r.left + " AI letter" + (r.left === 1 ? "" : "s") + " left this month";
+        wfToast("Done — read it through before you send");
+      }).catch(function () { wfToast("AI failed — check your connection"); })
+        .finally(function () { b.innerHTML = label; document.querySelectorAll("[data-ai]").forEach(function (x) { x.disabled = false; }); });
+    });
+  });
+})();
+</script>' : '');

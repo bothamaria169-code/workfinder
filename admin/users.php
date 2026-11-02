@@ -37,6 +37,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             audit('user_edit', $u['email']);
             flash('success', 'Saved.');
             break;
+        case 'credits':
+            $n = (int) ($_POST['credits'] ?? 0);
+            if ($n !== 0) {
+                addCredits($id, $n, $n > 0 ? 'gift' : 'adjust', postText('note', 200) ?: 'By admin', (int) $ADMIN['id']);
+                audit('user_credits', $u['email'], (string) $n);
+                flash('success', ($n > 0 ? 'Added ' : 'Removed ') . abs($n) . ' credits.');
+            }
+            break;
+        case 'pro':
+            $m = max(1, min(24, (int) ($_POST['months'] ?? 1)));
+            extendPro($id, $m, 'Given by admin', (int) $ADMIN['id']);
+            audit('user_pro', $u['email'], "+{$m} months");
+            flash('success', "Pro extended by {$m} month(s).");
+            break;
+        case 'endpro':
+            endPro($id, (int) $ADMIN['id']);
+            audit('user_pro_end', $u['email']);
+            flash('success', 'Moved to the Free plan.');
+            break;
         case 'reset':
             $err = sendResetLink($u);
             audit('user_reset_link', $u['email']);
@@ -119,6 +138,18 @@ if (!empty($_GET['id'])) {
             <div class="field"><label>Daily application email limit <span class="hint">Blank = site default (<?= e(get_setting('daily_email_limit', '20')) ?>)</span></label><input type="number" min="0" name="daily_email_limit" value="<?= e($u['daily_email_limit']) ?>"></div>
             <button class="btn btn-primary">Save</button>
           </form>
+        </section>
+        <?php $usage = usageFor($u); $ledger = $db->prepare('SELECT * FROM credit_ledger WHERE user_id = ? ORDER BY id DESC LIMIT 8'); $ledger->execute([$uid]); ?>
+        <section class="card">
+          <div class="card__head"><div><h2>Plan & credits</h2><p><?= $usage['pro'] ? 'Pro until ' . e(date('j M Y', strtotime($usage['expires']))) : 'Free plan' ?> · <?= $usage['left'] ?>/<?= $usage['allowance'] ?> applications left · <?= $usage['credits'] ?> credits</p></div></div>
+          <div class="card__body" style="display:grid;gap:.7rem">
+            <form method="POST" style="display:flex;gap:.4rem;flex-wrap:wrap"><?= csrfField() ?><input type="hidden" name="form" value="credits"><input type="hidden" name="id" value="<?= $uid ?>">
+              <input class="input" type="number" name="credits" placeholder="+10 or -5" style="width:110px"><input class="input" name="note" placeholder="Reason" style="flex:1;min-width:120px"><button class="btn btn-ghost">Adjust credits</button></form>
+            <form method="POST" style="display:flex;gap:.4rem"><?= csrfField() ?><input type="hidden" name="form" value="pro"><input type="hidden" name="id" value="<?= $uid ?>">
+              <select name="months" class="input" style="width:auto"><?php foreach ([1, 3, 6, 12] as $m): ?><option value="<?= $m ?>"><?= $m ?> month<?= $m > 1 ? 's' : '' ?></option><?php endforeach; ?></select><button class="btn btn-ghost"><i class="fa-solid fa-gem"></i> Give Pro</button></form>
+            <?php if ($usage['pro']): ?><?= $btn('endpro', 'Move to Free plan', 'End Pro for this user now?') ?><?php endif; ?>
+            <?php foreach ($ledger->fetchAll() as $l): ?><div class="list-row" style="padding:.35rem 0"><div class="list-row__main"><small><?= e($l['note'] ?: $l['kind']) ?></small></div><div class="list-row__side"><?= $l['delta'] ? ($l['delta'] > 0 ? '+' : '') . (int) $l['delta'] : '' ?> · <?= e(timeAgo($l['created_at'])) ?></div></div><?php endforeach; ?>
+          </div>
         </section>
         <section class="card">
           <div class="card__head"><h2>Access</h2></div>

@@ -175,7 +175,15 @@ function onNewSignup(array $user): void
             . '<p style="color:#4a5768">Signed up with: ' . e($user['email']) . '</p>',
             'Set up my job profile', APP_URL . '/onboarding.php')
     );
+
+    // Welcome credits, if the admin set any.
+    $gift = (int) get_setting('bill_signup_gift', '0');
+    if ($gift > 0) {
+        getDB()->prepare('UPDATE users SET credits = credits + ? WHERE id = ?')->execute([$gift, $user['id']]);
+        getDB()->prepare("INSERT INTO credit_ledger (user_id, delta, kind, note) VALUES (?, ?, 'gift', 'Welcome credits')")->execute([$user['id'], $gift]);
+    }
 }
+
 /** Creates (or links) the account for a verified Google profile and signs it in. */
 function loginWithGoogle(array $profile): array|string
 {

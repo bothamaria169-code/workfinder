@@ -32,6 +32,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             audit('settings_google');
             flash('success', 'Google sign-in saved.');
             break;
+        case 'ai':
+            save_secret_setting('groq_api_key', (string) ($_POST['groq_api_key'] ?? ''));
+            set_setting('groq_model', postText('groq_model', 100) ?: 'llama-3.3-70b-versatile');
+            set_setting('ai_enabled', !empty($_POST['ai_enabled']) ? '1' : '0');
+            audit('settings_ai');
+            flash('success', 'AI settings saved.');
+            break;
+        case 'ai_test':
+            require_once BASE_DIR . '/includes/ai.php';
+            $r = groqJson('Answer ONLY with JSON: {"ok":true,"say":"<a short friendly hello>"}', 'Say hello to the WorkFinder admin.', 60);
+            flash($r['ok'] ? 'success' : 'error', $r['ok'] ? 'Groq answered: ' . mb_substr((string) ($r['data']['say'] ?? 'ok'), 0, 120) : 'Groq test failed: ' . $r['error']);
+            break;
         case 'limits':
             set_setting('daily_email_limit', (string) max(1, (int) $_POST['daily_email_limit']));
             set_setting('max_alerts', (string) max(1, (int) $_POST['max_alerts']));
@@ -95,13 +107,28 @@ adminOpen('settings', 'Settings', 'Email delivery, job APIs, sign-in and limits.
     </form>
   </section>
 
+  <section class="card">
+    <div class="card__head"><div><h2>AI cover letters</h2><p>Groq's free API (Llama 3.3 70B). Monthly limits per plan are under Payments → Prices & plans.</p></div></div>
+    <div class="card__body">
+      <div class="status-line <?= get_setting('groq_api_key') !== '' && get_setting('ai_enabled', '1') === '1' ? 'ok' : 'off' ?>"><span class="dot"></span><?= get_setting('groq_api_key') === '' ? 'No API key yet — the AI buttons are hidden' : (get_setting('ai_enabled', '1') === '1' ? 'On — users see “Write it with AI” when applying' : 'Switched off') ?></div>
+      <ol class="steps-list"><li>Sign in at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> (free).</li><li><strong>Create API Key</strong>, copy it, paste it below.</li></ol>
+      <form method="POST"><?= csrfField() ?><input type="hidden" name="form" value="ai">
+        <div class="field"><label>Groq API key</label><input type="password" name="groq_api_key" value="<?= e(masked(get_setting('groq_api_key'))) ?>" autocomplete="new-password" placeholder="gsk_…"></div>
+        <div class="field"><label>Model <span class="hint">change only if Groq renames it</span></label><input name="groq_model" value="<?= $s('groq_model', 'llama-3.3-70b-versatile') ?>"></div>
+        <label class="check"><input type="checkbox" name="ai_enabled" value="1" <?= get_setting('ai_enabled', '1') === '1' ? 'checked' : '' ?>><span>Offer AI cover letters</span></label>
+        <button class="btn btn-primary">Save</button>
+      </form>
+      <?php if (get_setting('groq_api_key') !== ''): ?><form method="POST" style="margin-top:.6rem"><?= csrfField() ?><input type="hidden" name="form" value="ai_test"><button class="btn-xs"><i class="fa-solid fa-plug"></i> Test the key</button></form><?php endif; ?>
+    </div>
+  </section>
+
   <div>
     <section class="card">
       <div class="card__head"><div><h2>Limits & sign-ups</h2></div></div>
       <form method="POST" class="card__body"><?= csrfField() ?><input type="hidden" name="form" value="limits">
         <div class="form-grid">
           <div class="field"><label>Application emails per user per day</label><input type="number" min="1" name="daily_email_limit" value="<?= $s('daily_email_limit', '20') ?>"></div>
-          <div class="field"><label>Job alerts per user</label><input type="number" min="1" name="max_alerts" value="<?= $s('max_alerts', '10') ?>"></div>
+          <div class="field"><label>Job alerts per user <span class="hint">when plans are off</span></label><input type="number" min="1" name="max_alerts" value="<?= $s('max_alerts', '10') ?>"></div>
         </div>
         <label class="check"><input type="checkbox" name="registrations_open" value="1" <?= get_setting('registrations_open', '1') === '1' ? 'checked' : '' ?>><span>Allow new sign-ups</span></label>
         <button class="btn btn-primary">Save</button>

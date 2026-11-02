@@ -10,6 +10,7 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R admin ajax assets auth classes config database includes sources vendor $DEPLOYPATH
     - /bin/cp *.php .htaccess $DEPLOYPATH
-    - /bin/mkdir -p ${DEPLOYPATH}uploads/cvs
+    - /bin/mkdir -p ${DEPLOYPATH}uploads/cvs ${DEPLOYPATH}uploads/payments
     - /bin/cp uploads/.htaccess ${DEPLOYPATH}uploads/.htaccess
     - /bin/cp uploads/cvs/.htaccess ${DEPLOYPATH}uploads/cvs/.htaccess
+    - /bin/cp uploads/payments/.htaccess ${DEPLOYPATH}uploads/payments/.htaccess
