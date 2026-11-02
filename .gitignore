@@ -1,0 +1,19 @@
+# ── Never in GitHub ──────────────────────────────────────────────
+config/secrets.php
+DB_NAME*.txt
+ADMIN*.txt
+*.env
+.env*
+
+# CVs live on the server only
+uploads/cvs/*
+!uploads/cvs/.htaccess
+
+# Tooling and junk
+.claude/
+composer.phar
+*.zip
+*.log
+error_log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,98 @@
+/* ============================================================================
+   WorkFinder — job seeker app: search, job cards, tracker board, composer.
+   Builds on the style.css + admin.css tokens and components.
+   ============================================================================ */
+.pager { justify-content: flex-start; gap: .35rem; flex-wrap: wrap; }
+.pager a { min-width: 34px; height: 34px; display: inline-grid; place-items: center; padding: 0 .55rem; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--text-2); font-weight: 700; text-decoration: none !important; }
+.pager a.is-on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.pager span { margin-left: auto; }
+
+/* Search bar (landing hero + find page) */
+.searchbar { display: grid; grid-template-columns: 1.3fr 1fr auto; gap: .5rem; padding: .5rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--e-2); }
+.searchbar label { position: relative; display: block; }
+.searchbar label i { position: absolute; left: .95rem; top: 50%; transform: translateY(-50%); color: var(--text-3); }
+.searchbar input, .searchbar select { width: 100%; height: 48px; padding: 0 .9rem 0 2.5rem; border: 0; border-radius: var(--r-sm); background: var(--surface-2); outline: none; font-size: .95rem; }
+.searchbar input:focus { box-shadow: inset 0 0 0 2px var(--brand); }
+.searchbar .btn { height: 48px; }
+@media (max-width: 720px) { .searchbar { grid-template-columns: 1fr; } }
+
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; padding: 1rem 1.2rem; border-bottom: 1px solid var(--line); }
+.filters select, .filters input { width: 100%; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); font-size: .86rem; }
+
+/* Job cards */
+.jobs { display: grid; gap: .8rem; }
+.job { position: relative; display: grid; grid-template-columns: 48px 1fr auto; gap: 1rem; padding: 1.1rem 1.2rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); transition: border-color var(--t), box-shadow var(--t); }
+.job:hover { border-color: var(--brand-100); box-shadow: var(--e-1); }
+.job.is-featured { border-color: var(--amber); }
+.co-logo { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; font-family: var(--font-display); background: var(--brand-50); color: var(--brand); font-size: 1.05rem; flex-shrink: 0; }
+.co-logo.lg { width: 64px; height: 64px; font-size: 1.4rem; border-radius: 16px; }
+.job h3 { font-family: var(--font); font-size: 1.02rem; font-weight: 800; line-height: 1.3; }
+.job h3 a { color: var(--text); }
+.job__co { color: var(--text-2); font-size: .88rem; font-weight: 600; }
+.job__meta { display: flex; flex-wrap: wrap; gap: .3rem 1rem; color: var(--text-3); font-size: .8rem; margin: .4rem 0; }
+.job__meta i { margin-right: .3rem; }
+.job__desc { color: var(--text-2); font-size: .87rem; }
+.job__side { display: flex; flex-direction: column; align-items: flex-end; gap: .5rem; }
+.skill-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .55rem; }
+.skill { display: inline-flex; align-items: center; gap: .3rem; padding: .16rem .55rem; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--line); font-size: .74rem; font-weight: 700; color: var(--text-2); text-decoration: none !important; }
+.skill.have { background: var(--mint-50); border-color: transparent; color: var(--mint); }
+.match { --p: 0; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; font-size: .72rem; font-weight: 800; background: conic-gradient(var(--brand) calc(var(--p) * 1%), var(--surface-2) 0); position: relative; }
+.match::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--surface); }
+.match span { position: relative; }
+.save-btn.is-on { color: var(--amber); border-color: var(--amber); }
+@media (max-width: 640px) { .job { grid-template-columns: 40px 1fr; } .co-logo { width: 40px; height: 40px; } .job__side { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; } }
+
+/* Directory tiles (industries, skills) */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .8rem; }
+.tile { display: flex; align-items: center; gap: .8rem; padding: 1rem 1.1rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); color: var(--text); text-decoration: none !important; transition: border-color var(--t), transform var(--t); }
+.tile:hover { border-color: var(--brand); transform: translateY(-2px); }
+.tile .kpi__ico { width: 38px; height: 38px; }
+.tile strong { display: block; font-size: .92rem; }
+.tile small { color: var(--text-3); font-size: .78rem; }
+
+/* Tracker board */
+.board { display: grid; grid-template-columns: repeat(5, minmax(220px, 1fr)); gap: .8rem; overflow-x: auto; padding-bottom: .5rem; }
+.col { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-lg); padding: .7rem; min-height: 200px; }
+.col__head { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: .84rem; padding: .2rem .3rem .7rem; }
+.col__head b { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 0 .5rem; font-size: .72rem; }
+.col.drop { outline: 2px dashed var(--brand); }
+.app-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: .75rem .85rem; margin-bottom: .55rem; cursor: grab; font-size: .84rem; }
+.app-card strong { display: block; line-height: 1.3; }
+.app-card small { color: var(--text-3); display: block; }
+.app-card .due { color: var(--amber); font-weight: 700; }
+.st-saved { background: var(--surface-2); color: var(--text-3); }
+.st-applied { background: var(--brand-50); color: var(--brand); }
+.st-interview { background: var(--violet-50); color: var(--violet); }
+.st-offer, .st-sent { background: var(--mint-50); color: var(--mint); }
+.st-rejected, .st-failed, .st-bounced { background: var(--coral-50); color: var(--coral); }
+
+/* Tag input (skills) */
+.tagbox { display: flex; flex-wrap: wrap; gap: .35rem; padding: .45rem; border: 1.5px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+.tagbox:focus-within { border-color: var(--brand); }
+.tagbox .skill { background: var(--brand-50); color: var(--brand); border-color: transparent; }
+.tagbox .skill button { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 .1rem; }
+.tagbox input { flex: 1; min-width: 140px; border: 0 !important; outline: none; padding: .3rem !important; background: transparent; box-shadow: none !important; }
+.suggest { position: relative; }
+.suggest__list { position: absolute; z-index: 20; left: 0; right: 0; top: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm); box-shadow: var(--e-2); max-height: 220px; overflow-y: auto; }
+.suggest__list div { padding: .5rem .8rem; cursor: pointer; font-size: .88rem; }
+.suggest__list div:hover, .suggest__list div.on { background: var(--brand-50); }
+
+/* Job / company detail */
+.detail-head { display: flex; gap: 1rem; align-items: center; }
+.job-body { color: var(--text-2); font-size: .94rem; white-space: pre-line; }
+.facts { display: grid; gap: .6rem; }
+.facts div { display: flex; justify-content: space-between; gap: 1rem; font-size: .88rem; border-bottom: 1px solid var(--line); padding-bottom: .55rem; }
+.facts div:last-child { border-bottom: 0; }
+.facts span { color: var(--text-3); }
+
+/* Onboarding */
+.wizard { max-width: 780px; }
+
+.email-preview { border: 1px solid var(--line); border-radius: var(--r); padding: 1rem; background: var(--surface-2); font-size: .88rem; white-space: pre-wrap; max-height: 360px; overflow: auto; }
+.hero-search { max-width: 680px; }
+.stat-strip { display: flex; flex-wrap: wrap; gap: 1.6rem; margin-top: 1.4rem; color: var(--text-2); font-size: .9rem; }
+.stat-strip b { font-family: var(--font-display); font-size: 1.4rem; color: var(--text); display: block; }
+.hero .stat-strip { justify-content: inherit; }
+.field .chip-check input, .field .check input { width: auto; padding: 0; border: 0; box-shadow: none; }
+.field .tagbox input { width: auto; }
+.field label .hint { font-weight: 500; margin-left: .3rem; }

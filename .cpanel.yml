@@ -1,0 +1,15 @@
+# cPanel → Git™ Version Control → Manage → "Deploy HEAD Commit" runs these steps.
+# The repository is cloned to /home/swiftfusionco/repositories/workfinder and copied
+# into the live folder. config/secrets.php and uploads/cvs/ are never touched,
+# because they are not in the repository — upload secrets.php once with File Manager.
+#
+# If your cPanel username or the live folder differ, change the next line.
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/swiftfusionco/workfinder.swiftfusion.co.za/
+    - /bin/mkdir -p $DEPLOYPATH
+    - /bin/cp -R admin ajax assets auth classes config database includes sources vendor $DEPLOYPATH
+    - /bin/cp *.php .htaccess $DEPLOYPATH
+    - /bin/mkdir -p ${DEPLOYPATH}uploads/cvs
+    - /bin/cp uploads/.htaccess ${DEPLOYPATH}uploads/.htaccess
+    - /bin/cp uploads/cvs/.htaccess ${DEPLOYPATH}uploads/cvs/.htaccess
