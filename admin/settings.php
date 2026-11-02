@@ -33,16 +33,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('success', 'Google sign-in saved.');
             break;
         case 'ai':
+            require_once BASE_DIR . '/includes/ai.php';
+            $oldKey = get_setting('groq_api_key');
             save_secret_setting('groq_api_key', (string) ($_POST['groq_api_key'] ?? ''));
-            set_setting('groq_model', postText('groq_model', 100) ?: 'llama-3.3-70b-versatile');
+            // Blank = automatic: the best model Groq currently offers this key.
+            set_setting('groq_model', postText('groq_model', 100));
             set_setting('ai_enabled', !empty($_POST['ai_enabled']) ? '1' : '0');
+            $ids = groqModels(get_setting('groq_api_key') !== $oldKey || !empty($_POST['refresh_models']));
             audit('settings_ai');
-            flash('success', 'AI settings saved.');
+            flash('success', 'AI settings saved. Using ' . groqModel() . ($ids ? ' (' . count($ids) . ' models available on your key).' : '. Could not read the model list — check the key.'));
             break;
         case 'ai_test':
             require_once BASE_DIR . '/includes/ai.php';
+            groqModels(true);
             $r = groqJson('Answer ONLY with JSON: {"ok":true,"say":"<a short friendly hello>"}', 'Say hello to the WorkFinder admin.', 60);
-            flash($r['ok'] ? 'success' : 'error', $r['ok'] ? 'Groq answered: ' . mb_substr((string) ($r['data']['say'] ?? 'ok'), 0, 120) : 'Groq test failed: ' . $r['error']);
+            flash($r['ok'] ? 'success' : 'error', $r['ok'] ? 'Groq answered with ' . ($r['model'] ?? groqModel()) . ': ' . mb_substr((string) ($r['data']['say'] ?? 'ok'), 0, 120) : 'Groq test failed (' . ($r['model'] ?? groqModel()) . '): ' . $r['error']);
             break;
         case 'limits':
             set_setting('daily_email_limit', (string) max(1, (int) $_POST['daily_email_limit']));
@@ -108,13 +113,21 @@ adminOpen('settings', 'Settings', 'Email delivery, job APIs, sign-in and limits.
   </section>
 
   <section class="card">
-    <div class="card__head"><div><h2>AI cover letters</h2><p>Groq's free API (Llama 3.3 70B). Monthly limits per plan are under Payments → Prices & plans.</p></div></div>
+    <div class="card__head"><div><h2>AI cover letters</h2><p>Groq's free API — the model is picked from what your key can use. Monthly limits per plan are under Payments → Prices & plans.</p></div></div>
     <div class="card__body">
       <div class="status-line <?= get_setting('groq_api_key') !== '' && get_setting('ai_enabled', '1') === '1' ? 'ok' : 'off' ?>"><span class="dot"></span><?= get_setting('groq_api_key') === '' ? 'No API key yet — the AI buttons are hidden' : (get_setting('ai_enabled', '1') === '1' ? 'On — users see “Write it with AI” when applying' : 'Switched off') ?></div>
       <ol class="steps-list"><li>Sign in at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> (free).</li><li><strong>Create API Key</strong>, copy it, paste it below.</li></ol>
       <form method="POST"><?= csrfField() ?><input type="hidden" name="form" value="ai">
         <div class="field"><label>Groq API key</label><input type="password" name="groq_api_key" value="<?= e(masked(get_setting('groq_api_key'))) ?>" autocomplete="new-password" placeholder="gsk_…"></div>
-        <div class="field"><label>Model <span class="hint">change only if Groq renames it</span></label><input name="groq_model" value="<?= $s('groq_model', 'llama-3.3-70b-versatile') ?>"></div>
+        <?php require_once BASE_DIR . '/includes/ai.php'; $models = get_setting('groq_api_key') !== '' ? groqModels() : []; $chosen = get_setting('groq_model'); ?>
+        <div class="field"><label>Model <span class="hint">Automatic picks the best one Groq offers your key, and switches if Groq retires it</span></label>
+          <select name="groq_model">
+            <option value="">Automatic (now: <?= e(get_setting('groq_api_key') !== '' ? groqModel() : GROQ_PREFERRED[0]) ?>)</option>
+            <?php foreach ($models as $m): ?><option value="<?= e($m) ?>" <?= $chosen === $m ? 'selected' : '' ?>><?= e($m) ?><?= in_array($m, GROQ_PREFERRED, true) && array_search($m, GROQ_PREFERRED, true) < 3 ? ' — recommended' : '' ?></option><?php endforeach; ?>
+            <?php if ($chosen !== '' && !in_array($chosen, $models, true)): ?><option value="<?= e($chosen) ?>" selected><?= e($chosen) ?> (not offered by Groq any more)</option><?php endif; ?>
+          </select>
+          <label class="check" style="margin-top:.5rem"><input type="checkbox" name="refresh_models" value="1"><span>Refresh the model list from Groq when saving</span></label>
+        </div>
         <label class="check"><input type="checkbox" name="ai_enabled" value="1" <?= get_setting('ai_enabled', '1') === '1' ? 'checked' : '' ?>><span>Offer AI cover letters</span></label>
         <button class="btn btn-primary">Save</button>
       </form>

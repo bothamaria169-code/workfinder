@@ -12,7 +12,7 @@ PHP 8.1+ · MySQL/MariaDB · no build step. Same stack and design system as Invo
 | My hunt | `saved.php`, `tracker.php` (board), `emails.php` (sent emails), `alerts.php` (job alerts), `account.php` (POPIA download/delete) |
 | Apply by email | `apply.php`, `includes/applications.php` (sending, copies to the user, limits, opt-outs, alerts, reminders), `open.php` (open tracking), `unsubscribe.php` (employer opt-out) |
 | Job APIs | `sources/sources.php` — Adzuna, Careerjet, Jooble, Remotive, Arbeitnow |
-| AI cover letters | `includes/ai.php` (Groq, Llama 3.3), `ajax/ai_letter.php` — buttons on `apply.php` |
+| AI cover letters | `includes/ai.php` (Groq; model auto-picked, default openai/gpt-oss-120b), `ajax/ai_letter.php` — buttons on `apply.php` |
 | Plans, credits & payments | `includes/billing.php`, `billing.php` (EFT, OTT, 1Voucher), `admin/payments.php`, `admin/slip.php` |
 | Admin dashboard | `admin/` — Dashboard, Users (edit, suspend, make admin, log in as, credits/Pro, export), Emails, Payments, Jobs (post, CSV import, demo data), Companies (merge), Industries & skills, Job sources, Settings, Audit log |
 | Scheduled work | `cron.php` — job sync, alerts, follow-up reminders |

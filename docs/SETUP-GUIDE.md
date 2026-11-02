@@ -80,6 +80,7 @@ Paste the Client ID and secret into Admin → Settings → Google sign-in.
 
 1. Sign in at https://console.groq.com/keys → **Create API Key** → copy it.
 2. Admin → **Settings → AI cover letters** → paste the key → **Save** → **Test the key**.
+3. Leave **Model** on **Automatic**. WorkFinder reads the models your key can use and picks the best (openai/gpt-oss-120b today). If Groq retires a model, it switches to the next one by itself.
 
 Users then see **Write it with AI**, **Tailor to the advert**, **Shorter**, **More formal** and **Warmer** under the cover letter when applying. The AI only uses the user's profile and the advert, and never invents experience.
 
