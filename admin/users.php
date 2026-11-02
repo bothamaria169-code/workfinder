@@ -6,6 +6,26 @@ require_once BASE_DIR . '/includes/profile.php';
 
 $db = getDB();
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'add_user') {
+    $plan = in_array($_POST['plan'] ?? '', ['free', 'pro1', 'pro3', 'pro12', 'lifetime'], true) ? $_POST['plan'] : 'free';
+    $res = adminCreateUser(postText('email', 255), postText('full_name', 150), $plan, max(0, (int) ($_POST['credits'] ?? 0)), (int) $ADMIN['id']);
+    if (is_string($res)) {
+        flash('error', $res);
+        $found = findUserByEmail(postText('email', 255));
+        redirect('admin/users.php' . ($found ? '?id=' . (int) $found['id'] : ''));
+    }
+    audit('user_add', postText('email', 255), $plan . ' + ' . (int) ($_POST['credits'] ?? 0) . ' credits');
+    $msg = 'Account created.';
+    if (!empty($_POST['invite'])) {
+        $err = sendResetLink(freshUser($res));
+        $msg .= $err ? ' The set-password email failed: ' . $err : ' A “set your password” email was sent to them.';
+    } else {
+        $msg .= ' Press “Send reset link” when you want them to set a password (or they can sign in with Google).';
+    }
+    flash('success', $msg);
+    redirect('admin/users.php?id=' . $res);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id   = (int) ($_POST['id'] ?? 0);
     $form = (string) ($_POST['form'] ?? '');
@@ -50,6 +70,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             extendPro($id, $m, 'Given by admin', (int) $ADMIN['id']);
             audit('user_pro', $u['email'], "+{$m} months");
             flash('success', "Pro extended by {$m} month(s).");
+            break;
+        case 'lifetime':
+            giveLifetime($id, postText('note', 200) ?: 'Given by admin', (int) $ADMIN['id']);
+            audit('user_lifetime', $u['email']);
+            flash('success', 'Lifetime access given — it never expires.');
             break;
         case 'endpro':
             endPro($id, (int) $ADMIN['id']);
@@ -141,13 +166,17 @@ if (!empty($_GET['id'])) {
         </section>
         <?php $usage = usageFor($u); $ledger = $db->prepare('SELECT * FROM credit_ledger WHERE user_id = ? ORDER BY id DESC LIMIT 8'); $ledger->execute([$uid]); ?>
         <section class="card">
-          <div class="card__head"><div><h2>Plan & credits</h2><p><?= $usage['pro'] ? 'Pro until ' . e(date('j M Y', strtotime($usage['expires']))) : 'Free plan' ?> · <?= $usage['left'] ?>/<?= $usage['allowance'] ?> applications left · <?= $usage['credits'] ?> credits</p></div></div>
+          <div class="card__head"><div><h2>Plan & credits</h2><p><?= $usage['lifetime'] ? '<span class="tag tag-admin">Lifetime</span>' : ($usage['pro'] ? 'Pro until ' . e(date('j M Y', strtotime($usage['expires']))) : 'Free plan') ?> · <?= $usage['left'] ?>/<?= $usage['allowance'] ?> applications left this month · <strong><?= $usage['credits'] ?> credits</strong></p></div></div>
           <div class="card__body" style="display:grid;gap:.7rem">
             <form method="POST" style="display:flex;gap:.4rem;flex-wrap:wrap"><?= csrfField() ?><input type="hidden" name="form" value="credits"><input type="hidden" name="id" value="<?= $uid ?>">
-              <input class="input" type="number" name="credits" placeholder="+10 or -5" style="width:110px"><input class="input" name="note" placeholder="Reason" style="flex:1;min-width:120px"><button class="btn btn-ghost">Adjust credits</button></form>
-            <form method="POST" style="display:flex;gap:.4rem"><?= csrfField() ?><input type="hidden" name="form" value="pro"><input type="hidden" name="id" value="<?= $uid ?>">
-              <select name="months" class="input" style="width:auto"><?php foreach ([1, 3, 6, 12] as $m): ?><option value="<?= $m ?>"><?= $m ?> month<?= $m > 1 ? 's' : '' ?></option><?php endforeach; ?></select><button class="btn btn-ghost"><i class="fa-solid fa-gem"></i> Give Pro</button></form>
-            <?php if ($usage['pro']): ?><?= $btn('endpro', 'Move to Free plan', 'End Pro for this user now?') ?><?php endif; ?>
+              <input class="input" type="number" name="credits" placeholder="+100 or -5" style="width:110px"><input class="input" name="note" placeholder="Reason" style="flex:1;min-width:120px"><button class="btn btn-ghost"><i class="fa-solid fa-coins"></i> Adjust credits</button></form>
+            <p class="hint" style="margin:0">Credits are tokens: 1 credit = 1 application email or 1 AI letter, used after the monthly allowance. They never expire.</p>
+            <?php if (!$usage['lifetime']): ?>
+              <form method="POST" style="display:flex;gap:.4rem"><?= csrfField() ?><input type="hidden" name="form" value="pro"><input type="hidden" name="id" value="<?= $uid ?>">
+                <select name="months" class="input" style="width:auto"><?php foreach ([1, 3, 6, 12] as $m): ?><option value="<?= $m ?>"><?= $m ?> month<?= $m > 1 ? 's' : '' ?></option><?php endforeach; ?></select><button class="btn btn-ghost"><i class="fa-solid fa-gem"></i> Give Pro</button></form>
+              <?= $btn('lifetime', '<i class="fa-solid fa-infinity"></i> Give Lifetime access', 'Give this user Pro for life? It never expires.') ?>
+            <?php endif; ?>
+            <?php if ($usage['pro']): ?><?= $btn('endpro', 'Move to Free plan', $usage['lifetime'] ? 'Remove Lifetime access and move to Free?' : 'End Pro for this user now?') ?><?php endif; ?>
             <?php foreach ($ledger->fetchAll() as $l): ?><div class="list-row" style="padding:.35rem 0"><div class="list-row__main"><small><?= e($l['note'] ?: $l['kind']) ?></small></div><div class="list-row__side"><?= $l['delta'] ? ($l['delta'] > 0 ? '+' : '') . (int) $l['delta'] : '' ?> · <?= e(timeAgo($l['created_at'])) ?></div></div><?php endforeach; ?>
           </div>
         </section>
@@ -175,6 +204,8 @@ if ($q !== '') { $where[] = '(u.email LIKE ? OR u.full_name LIKE ? OR u.job_titl
 if ($filter === 'admins') $where[] = "u.role = 'admin'";
 if ($filter === 'suspended') $where[] = 'u.is_active = 0';
 if ($filter === 'nocv') $where[] = 'NOT EXISTS (SELECT 1 FROM cvs c WHERE c.user_id = u.id)';
+if ($filter === 'lifetime') $where[] = "u.plan = 'lifetime'";
+if ($filter === 'pro') $where[] = "u.plan = 'pro' AND u.plan_expires_at > NOW()";
 $w = implode(' AND ', $where);
 
 if (($_GET['export'] ?? '') === 'csv') {
@@ -199,22 +230,24 @@ $s = $db->prepare("SELECT u.*, (SELECT COUNT(*) FROM sent_emails se WHERE se.use
 $s->execute($args);
 $rows = $s->fetchAll();
 
-adminOpen('users', 'Users', number_format($total) . ' accounts', '<a class="btn btn-ghost" href="?' . e(http_build_query(['q' => $q, 'filter' => $filter, 'export' => 'csv'])) . '"><i class="fa-solid fa-file-csv"></i> Export CSV</a>');
+adminOpen('users', 'Users', number_format($total) . ' accounts',
+    '<a class="btn btn-ghost" href="?' . e(http_build_query(['q' => $q, 'filter' => $filter, 'export' => 'csv'])) . '"><i class="fa-solid fa-file-csv"></i> Export CSV</a>'
+    . '<a class="btn btn-primary" href="#add"><i class="fa-solid fa-user-plus"></i> Add person</a>');
 ?>
 <section class="card">
   <form class="toolbar" method="get">
     <input class="input" name="q" value="<?= e($q) ?>" placeholder="Email, name or job title…">
-    <select name="filter" onchange="this.form.submit()"><option value="">Everyone</option><option value="admins" <?= $filter === 'admins' ? 'selected' : '' ?>>Admins</option><option value="suspended" <?= $filter === 'suspended' ? 'selected' : '' ?>>Suspended</option><option value="nocv" <?= $filter === 'nocv' ? 'selected' : '' ?>>No CV yet</option></select>
+    <select name="filter" onchange="this.form.submit()"><option value="">Everyone</option><?php foreach (['lifetime' => 'Lifetime', 'pro' => 'Pro', 'admins' => 'Admins', 'suspended' => 'Suspended', 'nocv' => 'No CV yet'] as $k => $l): ?><option value="<?= $k ?>" <?= $filter === $k ? 'selected' : '' ?>><?= $l ?></option><?php endforeach; ?></select>
   </form>
   <table class="tbl">
-    <thead><tr><th>User</th><th>Looking for</th><th>Role</th><th class="num">CVs</th><th class="num">Applied</th><th>Joined</th><th>Last seen</th></tr></thead>
+    <thead><tr><th>User</th><th>Looking for</th><th>Role · plan</th><th class="num">Credits</th><th class="num">Applied</th><th>Joined</th><th>Last seen</th></tr></thead>
     <tbody>
     <?php foreach ($rows as $u): ?>
       <tr>
         <td class="cell-main"><div class="who"><div class="avatar"><?= e(strtoupper(mb_substr($u['full_name'] ?: $u['email'], 0, 1))) ?></div><div><strong><a href="?id=<?= (int) $u['id'] ?>"><?= e($u['full_name'] ?: '—') ?></a></strong><small><?= e($u['email']) ?></small></div></div></td>
         <td data-label="Looking for" class="muted"><?= e(mb_strimwidth((string) $u['job_titles'], 0, 40, '…') ?: '—') ?></td>
-        <td data-label="Role"><span class="tag tag-<?= $u['role'] === 'admin' ? 'admin' : 'user' ?>"><?= $u['role'] === 'admin' ? 'Admin' : 'User' ?></span><?= $u['is_active'] ? '' : ' <span class="tag tag-off">Off</span>' ?></td>
-        <td data-label="CVs" class="num"><?= (int) $u['cvs'] ?></td>
+        <td data-label="Role"><span class="tag tag-<?= $u['role'] === 'admin' ? 'admin' : 'user' ?>"><?= $u['role'] === 'admin' ? 'Admin' : 'User' ?></span><?= $u['is_active'] ? '' : ' <span class="tag tag-off">Off</span>' ?><?= isLifetime($u) ? ' <span class="tag tag-admin"><i class="fa-solid fa-infinity"></i> Lifetime</span>' : (isPro($u) ? ' <span class="tag tag-on">Pro</span>' : '') ?></td>
+        <td data-label="Credits" class="num"><?= (int) $u['credits'] ?></td>
         <td data-label="Applied" class="num"><?= (int) $u['sent'] ?></td>
         <td data-label="Joined" class="muted"><?= e(date('j M Y', strtotime($u['created_at']))) ?></td>
         <td data-label="Last seen" class="muted"><?= e(timeAgo($u['last_login_at'])) ?></td>
@@ -224,5 +257,19 @@ adminOpen('users', 'Users', number_format($total) . ' accounts', '<a class="btn 
     </tbody>
   </table>
   <?= pager($total, $page, 30, array_filter(['q' => $q, 'filter' => $filter])) ?>
+</section>
+
+<section class="card" id="add" style="margin-top:1.2rem;max-width:820px">
+  <div class="card__head"><div><h2>Add a person</h2><p>Creates their account straight away — for Lifetime members, staff, partners or anyone you're onboarding.</p></div></div>
+  <form method="POST" class="card__body"><?= csrfField() ?><input type="hidden" name="form" value="add_user">
+    <div class="form-grid">
+      <div class="field"><label>Email</label><input type="email" name="email" required></div>
+      <div class="field"><label>Name <span class="hint">optional</span></label><input name="full_name"></div>
+      <div class="field"><label>Plan</label><select name="plan"><option value="lifetime">Lifetime (never expires)</option><option value="pro12">Pro · 12 months</option><option value="pro3">Pro · 3 months</option><option value="pro1">Pro · 1 month</option><option value="free">Free</option></select></div>
+      <div class="field"><label>Starting credits</label><input type="number" min="0" name="credits" value="0"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="invite" value="1" checked><span>Email them a link to set their password now</span></label>
+    <button class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Create account</button>
+  </form>
 </section>
 <?php adminClose();

@@ -72,6 +72,10 @@ function loginUser(string $email, string $password): bool|string
         recordAttempt($email, false);
         return 'google';
     }
+    if ($row && empty($row['password_hash'])) {
+        recordAttempt($email, false);
+        return 'nopassword'; // made by an admin, password not set yet
+    }
     if (!$row || !password_verify($password, (string) $row['password_hash'])) {
         recordAttempt($email, false);
         return 'invalid';

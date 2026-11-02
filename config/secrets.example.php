@@ -27,6 +27,10 @@ return [
     'admin_reset_password' => '',
     'admin_reset_emails'   => [], // e.g. ['you@gmail.com']
 
+    // Lifetime access: these addresses get an account (if needed) with Pro for life.
+    // They set a password with "Forgot password". Manage everyone else in Admin → Users.
+    'lifetime_emails' => [], // e.g. ['person@example.com']
+
     // Mailbox that sends applications, alerts and system emails (cPanel → Email Accounts).
     // Leave smtp_pass blank to use the server's PHP mail() instead.
     'smtp_host' => 'mail.swiftfusion.co.za',

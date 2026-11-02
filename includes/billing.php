@@ -84,9 +84,21 @@ function eftReference(array $user): string
     return 'WF' . str_pad((string) $user['id'], 5, '0', STR_PAD_LEFT);
 }
 
+/** Lifetime is Pro that never expires; only an admin can give it. */
+function isLifetime(array $user): bool
+{
+    return ($user['plan'] ?? 'free') === 'lifetime';
+}
+
 function isPro(array $user): bool
 {
-    return ($user['plan'] ?? 'free') === 'pro' && !empty($user['plan_expires_at']) && strtotime($user['plan_expires_at']) > time();
+    return isLifetime($user)
+        || (($user['plan'] ?? 'free') === 'pro' && !empty($user['plan_expires_at']) && strtotime($user['plan_expires_at']) > time());
+}
+
+function planLabel(array $user): string
+{
+    return isLifetime($user) ? 'Lifetime' : (isPro($user) ? 'Pro' : 'Free');
 }
 
 function freshUser(int $userId): array
@@ -108,13 +120,14 @@ function usageFor(array $user): array
     return [
         'on'        => billingOn(),
         'pro'       => $pro,
-        'plan'      => $pro ? 'Pro' : 'Free',
+        'lifetime'  => isLifetime($user),
+        'plan'      => planLabel($user),
         'allowance' => $allowance,
         'used'      => $used,
         'left'      => max(0, $allowance - $used),
         'credits'   => (int) ($user['credits'] ?? 0),
         'renews'    => date('j M', strtotime('first day of next month')),
-        'expires'   => $pro ? $user['plan_expires_at'] : null,
+        'expires'   => $pro && !isLifetime($user) ? $user['plan_expires_at'] : null,
     ];
 }
 
@@ -167,6 +180,7 @@ function addCredits(int $userId, int $delta, string $kind, string $note = '', ?i
 function extendPro(int $userId, int $months, string $note = '', ?int $adminId = null): void
 {
     $u     = freshUser($userId);
+    if (isLifetime($u)) return; // already has it for good
     $start = isPro($u) ? strtotime($u['plan_expires_at']) : time();
     $until = date('Y-m-d H:i:s', strtotime("+{$months} month", $start));
     getDB()->prepare("UPDATE users SET plan = 'pro', plan_expires_at = ? WHERE id = ?")->execute([$until, $userId]);
@@ -177,7 +191,47 @@ function extendPro(int $userId, int $months, string $note = '', ?int $adminId = 
 function endPro(int $userId, ?int $adminId = null): void
 {
     getDB()->prepare("UPDATE users SET plan = 'free', plan_expires_at = NULL WHERE id = ?")->execute([$userId]);
-    getDB()->prepare("INSERT INTO credit_ledger (user_id, delta, kind, note, created_by) VALUES (?, 0, 'pro', 'Pro ended by admin', ?)")->execute([$userId, $adminId]);
+    getDB()->prepare("INSERT INTO credit_ledger (user_id, delta, kind, note, created_by) VALUES (?, 0, 'pro', 'Moved to Free by admin', ?)")->execute([$userId, $adminId]);
+}
+
+function giveLifetime(int $userId, string $note = '', ?int $adminId = null): void
+{
+    getDB()->prepare("UPDATE users SET plan = 'lifetime', plan_expires_at = NULL WHERE id = ?")->execute([$userId]);
+    getDB()->prepare("INSERT INTO credit_ledger (user_id, delta, kind, note, created_by) VALUES (?, 0, 'lifetime', ?, ?)")
+        ->execute([$userId, 'Lifetime access' . ($note ? " · {$note}" : ''), $adminId]);
+}
+
+/**
+ * Takes one credit for an AI letter once the month's AI allowance is used.
+ * Credits work as tokens for both applications and AI letters.
+ */
+function takeCredit(int $userId, string $note): bool
+{
+    $take = getDB()->prepare('UPDATE users SET credits = credits - 1 WHERE id = ? AND credits > 0');
+    $take->execute([$userId]);
+    if ($take->rowCount() !== 1) return false;
+    getDB()->prepare("INSERT INTO credit_ledger (user_id, delta, kind, note) VALUES (?, -1, 'use', ?)")->execute([$userId, $note]);
+    return true;
+}
+
+/**
+ * Creates an account for someone the admin adds (no password: they set one
+ * from the emailed link, or sign in with Google). Returns the user id, or a
+ * message when the email is already registered.
+ */
+function adminCreateUser(string $email, string $name, string $plan, int $credits, int $adminId): int|string
+{
+    $email = strtolower(trim($email));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return 'That email address doesn\'t look right.';
+    if (findUserByEmail($email)) return 'That email already has an account — open it below to change the plan or credits.';
+    $db = getDB();
+    $db->prepare("INSERT INTO users (email, full_name, settings, signup_method, signup_source) VALUES (?, ?, ?, 'admin', 'Added by admin')")
+       ->execute([$email, $name ?: null, defaultUserSettings()]);
+    $id = (int) $db->lastInsertId();
+    if ($plan === 'lifetime') giveLifetime($id, 'Added by admin', $adminId);
+    elseif (preg_match('/^pro(\d+)$/', $plan, $m)) extendPro($id, (int) $m[1], 'Added by admin', $adminId);
+    if ($credits > 0) addCredits($id, $credits, 'gift', 'Added by admin', $adminId);
+    return $id;
 }
 
 /** Admin approved a payment: give the user what they paid for and tell them. */

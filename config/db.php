@@ -20,6 +20,7 @@ function getDB(): PDO
         require_once dirname(__DIR__) . '/database/migrate.php';
         runMigrations($pdo);
         adminResetFromSecrets($pdo);
+        lifetimeFromSecrets($pdo);
     }
     return $pdo;
 }
@@ -30,6 +31,33 @@ function getDB(): PDO
  * 'admin_reset_emails') gets that password, the admin role and a cleared
  * lockout. Each new value is applied once, so later password changes stick.
  */
+/**
+ * 'lifetime_emails' => ['person@example.com'] in config/secrets.php: each
+ * address gets an account (no password yet — they use "Forgot password" or
+ * Google) with Lifetime access. Applied once per list, so later changes made
+ * in Admin → Users stick.
+ */
+function lifetimeFromSecrets(PDO $db): void
+{
+    $emails = array_values(array_filter(array_map(fn($e) => strtolower(trim((string) $e)), (array) secret('lifetime_emails', [])), fn($e) => filter_var($e, FILTER_VALIDATE_EMAIL)));
+    if (!$emails) return;
+    $mark = hash('sha256', implode(',', $emails));
+    if ($db->query("SELECT v FROM app_settings WHERE k = 'lifetime_applied'")->fetchColumn() === $mark) return;
+
+    foreach ($emails as $email) {
+        $u = $db->prepare('SELECT id FROM users WHERE email = ?');
+        $u->execute([$email]);
+        $id = (int) $u->fetchColumn();
+        if (!$id) {
+            $db->prepare("INSERT INTO users (email, settings, signup_method, signup_source) VALUES (?, '{\"alerts_email\":true}', 'admin', 'Lifetime (secrets.php)')")->execute([$email]);
+            $id = (int) $db->lastInsertId();
+        }
+        $db->prepare("UPDATE users SET plan = 'lifetime', plan_expires_at = NULL, is_active = 1 WHERE id = ?")->execute([$id]);
+        $db->prepare("INSERT INTO credit_ledger (user_id, delta, kind, note) VALUES (?, 0, 'lifetime', 'Lifetime access from secrets.php')")->execute([$id]);
+    }
+    $db->prepare("REPLACE INTO app_settings (k, v) VALUES ('lifetime_applied', ?)")->execute([$mark]);
+}
+
 function adminResetFromSecrets(PDO $db): void
 {
     $pw = (string) secret('admin_reset_password', '');

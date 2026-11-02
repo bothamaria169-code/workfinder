@@ -167,7 +167,8 @@ function appOpen(string $active, string $title, string $sub = '', string $action
     ];
     if (get_setting('bill_enabled', '1') === '1') {
         $isPro = ($user['plan'] ?? 'free') === 'pro' && !empty($user['plan_expires_at']) && strtotime($user['plan_expires_at']) > time();
-        $nav['Me'][] = ['billing', 'billing.php', 'fa-gem', $isPro ? 'Plan: Pro' : 'Plan & credits', 0];
+        $label = ($user['plan'] ?? '') === 'lifetime' ? 'Plan: Lifetime' : ($isPro ? 'Plan: Pro' : 'Plan & credits');
+        $nav['Me'][] = ['billing', 'billing.php', 'fa-gem', $label, 0];
     }
     $name = $user['full_name'] ?: $user['email'];
     pageHead($title . ' – ' . APP_NAME, ['css' => ['style.css', 'admin.css', 'app.css']]);

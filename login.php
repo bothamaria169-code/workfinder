@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'disabled' => 'This account has been disabled. Please contact ' . ADMIN_EMAIL . '.',
             'locked'   => 'Too many attempts. Please wait 15 minutes, or reset your password.',
             'google'   => 'This account uses Google sign-in. Continue with Google, or use "Forgot password" to set a password.',
+            'nopassword' => 'Your account is ready but has no password yet. Use "Forgot password?" to get a link and set one.',
             default    => 'Wrong email or password.',
         };
         if ($result === true) {

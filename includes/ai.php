@@ -85,9 +85,14 @@ const AI_TONES = [
 function aiCoverLetter(array $user, ?array $job, ?array $company, string $mode = 'write', string $draft = ''): array
 {
     if (!aiEnabled()) return ['ok' => false, 'error' => 'AI cover letters are not switched on yet.'];
+    $paidWithCredit = false;
     if (aiLeft($user) <= 0) {
-        $c = billingConfig();
-        return ['ok' => false, 'error' => 'You\'ve used all your AI cover letters this month.' . (isPro($user) ? '' : " Go Pro for {$c['pro_ai']} a month.")];
+        // Monthly AI letters used up: a credit (token) pays for this one.
+        $paidWithCredit = billingOn() && takeCredit((int) $user['id'], 'AI cover letter');
+        if (!$paidWithCredit) {
+            $c = billingConfig();
+            return ['ok' => false, 'error' => 'You\'ve used all your AI cover letters this month and have no credits left.' . (isPro($user) ? '' : " Go Pro for {$c['pro_ai']} a month.")];
+        }
     }
     $mode = isset(AI_TONES[$mode]) ? $mode : 'write';
 
@@ -126,6 +131,7 @@ SYS;
     $letter = trim((string) ($r['data']['letter'] ?? ''));
     $ok = $r['ok'] && mb_strlen($letter) > 80;
     logAi((int) $user['id'], 'letter_' . $mode, $ok);
+    if (!$ok && $paidWithCredit) addCredits((int) $user['id'], 1, 'refund', 'AI letter failed');
     if (!$ok) return ['ok' => false, 'error' => 'The AI could not write a letter just now' . ($r['error'] ? ' (' . $r['error'] . ')' : '') . '. Please try again.'];
     return ['ok' => true, 'subject' => mb_substr(trim((string) ($r['data']['subject'] ?? '')), 0, 250), 'letter' => $letter, 'left' => aiLeft($user)];
 }

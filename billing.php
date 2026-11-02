@@ -98,10 +98,10 @@ appOpen('billing', 'Plan & credits', 'Pay by bank deposit, or with an OTT vouche
 
 <div class="kpis">
   <div class="kpi"><div class="kpi__ico"><i class="fa-solid fa-gem"></i></div><div><div class="kpi__label">Your plan</div><div class="kpi__value"><?= $u['plan'] ?></div>
-    <div class="kpi__delta"><?= $u['pro'] ? 'Active until ' . date('j M Y', strtotime($u['expires'])) : 'Pro is R' . $c['pro_price'] . '/month' ?></div></div></div>
+    <div class="kpi__delta"><?= $u['lifetime'] ? 'Never expires' : ($u['pro'] ? 'Active until ' . date('j M Y', strtotime($u['expires'])) : 'Pro is R' . $c['pro_price'] . '/month') ?></div></div></div>
   <div class="kpi kpi--violet"><div class="kpi__ico"><i class="fa-solid fa-paper-plane"></i></div><div style="flex:1"><div class="kpi__label">Applications this month</div><div class="kpi__value"><?= $u['left'] ?> <small style="font-size:.9rem;color:var(--text-3)">of <?= $u['allowance'] ?> left</small></div>
     <div class="strength" style="margin-top:.4rem"><span style="width:<?= $pct ?>%;background:var(--violet)"></span></div><div class="kpi__delta">Resets <?= $u['renews'] ?></div></div></div>
-  <div class="kpi kpi--mint"><div class="kpi__ico"><i class="fa-solid fa-coins"></i></div><div><div class="kpi__label">Credits</div><div class="kpi__value"><?= $u['credits'] ?></div><div class="kpi__delta">1 credit = 1 application · never expire</div></div></div>
+  <div class="kpi kpi--mint"><div class="kpi__ico"><i class="fa-solid fa-coins"></i></div><div><div class="kpi__label">Credits</div><div class="kpi__value"><?= $u['credits'] ?></div><div class="kpi__delta">1 credit = 1 application or AI letter · never expire</div></div></div>
   <div class="kpi kpi--amber"><div class="kpi__ico"><i class="fa-solid fa-wand-magic-sparkles"></i></div><div><div class="kpi__label">AI cover letters left</div><div class="kpi__value"><?= aiLeft($user) ?></div><div class="kpi__delta"><?= $u['pro'] ? $c['pro_ai'] : $c['free_ai'] ?> a month · <?= alertLimit($user) ?> job alerts</div></div></div>
 </div>
 
